@@ -11,7 +11,9 @@ username = os.getenv("USERNAME")
 password = os.getenv("PASSWORD")
 receiver = os.getenv("RECEIVER")
 
-api_url = f"{api_base_url}&apiKey={key}"
+topic = "tesla"
+
+api_url = f"{api_base_url}&apiKey={key}&q={topic}&from=2025-07-22&sortBy=publishedAt&language=en&pageSize=20"
 
 req = requests.get(api_url, timeout=5000)
 data = req.json()
@@ -19,7 +21,17 @@ data = req.json()
 body = ""
 for article in data["articles"]:
     if article["title"] is not None:
-        body = body + article["title"] + "\n" + article["description"] + 2 * "\n"
+        body = (
+            "Subject: Today's news"
+            + "\n"
+            + body
+            + article["title"]
+            + "\n"
+            + article["description"]
+            + "\n"
+            + article["url"]
+            + 2 * "\n"
+        )
 
 body = body.encode("utf-8")
 send_email(username, password, receiver, body)
