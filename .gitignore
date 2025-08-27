@@ -8,3 +8,5 @@ static/
 jupyter_tutorial/
 three/
 data_small/
+*.csv
+.ipynb_checkpoints/
