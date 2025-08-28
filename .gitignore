@@ -11,3 +11,5 @@ data_small/
 *.csv
 .ipynb_checkpoints/
 *.ipynb
+*.txt
+!requirements.txt
