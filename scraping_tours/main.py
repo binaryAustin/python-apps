@@ -1,9 +1,10 @@
-import requests
-import selectorlib
 import smtplib, ssl
 import os
 import time
+import sqlite3
 from dotenv import load_dotenv
+import requests
+import selectorlib
 
 load_dotenv(".env")
 
@@ -19,6 +20,8 @@ DATA_PATH = "data.txt"
 USERNAME = os.getenv("USERNAME")
 PASSWORD = os.getenv("PASSWORD")
 RECEIVER = os.getenv("RECEIVER")
+
+connection = sqlite3.connect("/root/data.db")
 
 
 def scrape(url: str) -> str:
@@ -45,24 +48,35 @@ def send_email(username: str, password: str, receiver: str, message: str):
 
 
 def store(value: str):
-    with open(DATA_PATH, mode="a", encoding="utf-8") as fw:
-        fw.write(value + "\n")
+    row = value.split(",")
+    row = [item.strip() for item in row]
+    cursor = connection.cursor()
+    cursor.execute("INSERT INTO events VALUES(?,?,?)", row)
+    connection.commit()
 
 
-def read():
-    with open(DATA_PATH, mode="r", encoding="utf-8") as fr:
-        return fr.read()
+def read(value: str):
+    row = value.split(",")
+    row = [item.strip() for item in row]
+    band, city, date = row
+    cursor = connection.cursor()
+    cursor.execute(
+        "SELECT * FROM events WHERE band=? AND city=? AND date=?", (band, city, date)
+    )
+    result = cursor.fetchone()
+    return result
 
 
 def main():
     while True:
         source = scrape(URL)
         extracted_value = extract(source)
-        data = read()
-        if extracted_value.lower() != EMPTY_TEXT and extracted_value not in data:
-            store(extracted_value)
-            msg = "Subject: New event coming up\n" + extracted_value
-            send_email(USERNAME, PASSWORD, RECEIVER, msg)
+        if extracted_value.lower() != EMPTY_TEXT:
+            result = read(extracted_value)
+            if not result:
+                store(extracted_value)
+                # msg = "Subject: New event coming up\n" + extracted_value
+                # send_email(USERNAME, PASSWORD, RECEIVER, msg)
         time.sleep(30.0)
 
 
