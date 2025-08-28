@@ -1,7 +1,8 @@
-import requests
-import selectorlib
+import sqlite3
 from datetime import datetime, timezone
 import time
+import requests
+import selectorlib
 
 
 URL = "https://programmer100.pythonanywhere.com/"
@@ -11,6 +12,9 @@ HEADERS = {
 
 YAML_PATH = "extract.yaml"
 DATA_PATH = "data.txt"
+DB_PATH = "/root/data.db"
+
+conn = sqlite3.connect(DB_PATH)
 
 
 def scrape(url: str) -> str:
@@ -26,13 +30,12 @@ def extract(source: str) -> str:
 
 
 def store(value: str):
-    with open(DATA_PATH, mode="a", encoding="utf-8") as fw:
-        now = (
-            datetime.now(timezone.utc)
-            .isoformat(timespec="seconds")
-            .replace("+00:00", "Z")
-        )
-        fw.write(f"{now},{value}" + "\n")
+    now = (
+        datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    )
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO temperatures VALUES(?,?)", (now, int(value)))
+    conn.commit()
 
 
 def main():
@@ -44,4 +47,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        conn.close()
+    except Exception:
+        conn.close()
