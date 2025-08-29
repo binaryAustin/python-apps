@@ -13,3 +13,4 @@ data_small/
 *.ipynb
 *.txt
 !requirements.txt
+*.db
