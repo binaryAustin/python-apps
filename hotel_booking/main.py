@@ -2,24 +2,39 @@ from dataclasses import dataclass
 import pandas
 
 
-DATA_FILE_PATH = "hotels.csv"
+HOTELS_DATA_PATH = "hotels.csv"
+CARDS_DATA_PATH = "cards.csv"
+CARDS_SECURITY_DATA_PATH = "card-security.csv"
+
+
+@dataclass
+class DataPaths:
+    hotels_data_path: str
+    cards_data_path: str
+    cards_security_data_path: str
 
 
 class DataAccess:
-    def __init__(self, data_file_path: str):
-        self.file_path = data_file_path
-        self.df = pandas.read_csv(data_file_path)
+    def __init__(self, paths: DataPaths):
+        self.hotels_data_path = paths.hotels_data_path
+        self.cards_data_path = paths.cards_data_path
+        self.cards_security_data_path = paths.cards_security_data_path
+        self.hotels_df = pandas.read_csv(paths.hotels_data_path, dtype={"id": str})
+        self.cards_df = pandas.read_csv(paths.cards_data_path, dtype=str)
+        self.cards_security_df = pandas.read_csv(
+            paths.cards_security_data_path, dtype=str
+        )
 
-    def get_data_source(self):
-        return self.df
+    def save_hotels(self):
+        self.hotels_df.to_csv(self.hotels_data_path, index=False)
 
-    def save(self):
-        self.df.to_csv(self.file_path, index=False)
+    def save_cards(self):
+        self.cards_df.to_csv(self.cards_data_path, index=False)
 
 
 @dataclass
 class HotelProps:
-    hotel_id: int
+    hotel_id: str
     name: str
     city: str
     capacity: int
@@ -41,18 +56,17 @@ class HotelService:
 
     def book(self, hotel_id: str):
         """Book a hotel by changing its available status to 'no'."""
-        data_source = self.data_access.get_data_source()
-        data_source.loc[data_source["id"] == hotel_id]["available"] = "no"
-        self.data_access.save()
+        hotels_df = self.data_access.hotels_df
+        hotels_df.loc[hotels_df["id"] == hotel_id, "available"] = "no"
+        self.data_access.save_hotels()
 
     def find_all(self):
-        data_source = self.data_access.get_data_source()
-        return data_source
+        return self.data_access.hotels_df
 
-    def find_one(self, hotel_id: int) -> Hotel | None:
+    def find_one(self, hotel_id: str) -> Hotel | None:
         """Find and return one hotel."""
-        data_source = self.data_access.get_data_source()
-        results = data_source.loc[data_source["id"] == hotel_id]
+        hotels_df = self.data_access.hotels_df
+        results = hotels_df.loc[hotels_df["id"] == hotel_id]
         if len(results) == 0:
             return None
         first_row_dict = results.iloc[0].to_dict()
@@ -80,23 +94,61 @@ Hotel: {self.hotel.name}"""
         return content
 
 
+@dataclass
+class CreditCard:
+    holder: str
+    number: str
+    expiration: str
+    cvc: str
+
+
+class PaymentService:
+    def __init__(self, data_access: DataAccess):
+        self.data_access = data_access
+
+    def validate_card(self, credit_card: CreditCard) -> bool:
+        cards_df_list = self.data_access.cards_df.to_dict(orient="records")
+        card_to_check = {
+            "number": credit_card.number,
+            "expiration": credit_card.expiration,
+            "cvc": credit_card.cvc,
+            "holder": credit_card.holder,
+        }
+        return card_to_check in cards_df_list
+
+    def authenticate(self, card_number: str, password: str) -> bool:
+        cards_security_df = self.data_access.cards_security_df
+        rows = cards_security_df.loc[cards_security_df["number"] == card_number]
+        return len(rows) > 0 and rows.iloc[0].to_dict()["password"] == password
+
+
 def main():
-    data_access = DataAccess(DATA_FILE_PATH)
+    data_paths = DataPaths(HOTELS_DATA_PATH, CARDS_DATA_PATH, CARDS_SECURITY_DATA_PATH)
+    data_access = DataAccess(data_paths)
     hotel_service = HotelService(data_access=data_access)
+    payment_service = PaymentService(data_access=data_access)
     hotels = hotel_service.find_all()
     print(hotels)
     hotel_id = input("Enter the id of the hotel: ")
-    hotel = hotel_service.find_one(int(hotel_id))
+    hotel = hotel_service.find_one(hotel_id)
     if hotel is not None and hotel.available:
         hotel_service.book(hotel_id)
-        customer_name = input("Enter your name: ")
-        reservation_ticket = ReservationTicket(customer_name, hotel)
-        ticket = reservation_ticket.generate()
-        print(ticket)
-    elif hotel is None:
-        print("Hotel id is not valid 😕")
+        card_number = input("Enter credit card number: ")
+        holder_name = input("Enter holder name: ")
+        expiration_date = input("Enter expiration date: ")
+        cvc = input("Enter CVC: ")
+        credit_card = CreditCard(holder_name, card_number, expiration_date, cvc)
+        password = input("Enter password: ")
+        if payment_service.validate_card(
+            credit_card=credit_card
+        ) and payment_service.authenticate(card_number, password):
+            reservation_ticket = ReservationTicket(holder_name, hotel)
+            ticket = reservation_ticket.generate()
+            print(ticket)
+        else:
+            print("There was a problem with your payment")
     else:
-        print("Hotel is not available 😕")
+        print("Hotel is not valid or available 😕")
 
 
 if __name__ == "__main__":
