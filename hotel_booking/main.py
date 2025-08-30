@@ -69,10 +69,14 @@ class HotelService:
 
 class ReservationTicket:
     def __init__(self, customer_name: str, hotel: Hotel):
-        pass
+        self.customer_name = customer_name
+        self.hotel = hotel
 
     def generate(self) -> str:
-        content = "Customer name: Austin Nguyen\n" + "Hotel: Casablanca"
+        content = f"""Thank your for your reservation 😊
+Here is your booking info.
+Customer name: {self.customer_name}
+Hotel: {self.hotel.name}"""
         return content
 
 
@@ -88,8 +92,6 @@ def main():
         customer_name = input("Enter your name: ")
         reservation_ticket = ReservationTicket(customer_name, hotel)
         ticket = reservation_ticket.generate()
-        print("You have successfully booked this hotel 😊")
-        print("Here is your ticket detail")
         print(ticket)
     elif hotel is None:
         print("Hotel id is not valid 😕")
